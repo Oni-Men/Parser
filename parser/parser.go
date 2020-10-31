@@ -7,11 +7,19 @@ import (
 	"../lexer"
 )
 
+type (
+	prefixParseFn func() ast.Expression
+	infixParseFn func(ast.Expression) ast.Expression
+)
+
 type Parser struct {
 	l *lexer.Lexer
 	errors []string
 	curToken token.Token
 	peekToken token.Token
+
+	prefixParseFns map[token.TokenType]prefixParseFn
+	infixParseFns map[token.TokenType]infixParseFn
 }
 
 func New(lexer *lexer.Lexer) *Parser {
@@ -27,6 +35,14 @@ func New(lexer *lexer.Lexer) *Parser {
 
 func (p *Parser) Errors() []string {
 	return p.errors
+}
+
+func (p *Parser) registerPrefixParseFn(t token.TokenType, fn prefixParseFn) {
+	p.prefixParseFns[t] = fn
+}
+
+func (p *Parser) registerInfixParseFn(t token.TokenType, fn infixParseFn) {
+	p.infixParseFns[t] = fn
 }
 
 func (p *Parser) peekError(t token.TokenType) {
@@ -57,6 +73,8 @@ func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
 	case token.LET:
 		return p.parseLetStatement()
+	case token.RETURN:
+		return p.parseReturnStatement()
 	default:
 		return nil
 	}
@@ -76,6 +94,18 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 	}
 
 	//TODO
+	for !p.curTokenIs(token.SEMICOLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
+	stmt := &ast.ReturnStatement{ Token: p.curToken }
+
+	p.nextToken()
+
 	for !p.curTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
